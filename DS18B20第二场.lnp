@@ -1,0 +1,6 @@
+"STARTUP.obj",
+"DS18B20第二场.obj",
+"iic.obj",
+"onewire.obj" 
+TO "DS18B20第二场" 
+RAMSIZE(256) 

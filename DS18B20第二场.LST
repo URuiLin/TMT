@@ -1,0 +1,354 @@
+C51 COMPILER V9.01   DS18B20第二场                                                         05/10/2022 18:39:31 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE DS18B20第二场
+OBJECT MODULE PLACED IN DS18B20第二场.OBJ
+COMPILER INVOKED BY: F:\K5\511\C51\BIN\C51.EXE DS18B20第二场.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <STC15F2K60S2.H>
+   2          #include "iic.h"
+   3          #include "onewire.h"
+   4          
+   5          
+   6          unsigned char duanma[18] = {0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x82,0xf8,0x80,0x90,0x88,0x80,0xc6,0xc0,0x86,0x8
+             -e,0xbf,0x7f};
+   7          unsigned Temp;
+   8          unsigned char F_SMG=1;
+   9          unsigned char hl=0;
+  10          unsigned char count=0;
+  11          unsigned char K5=0;
+  12          unsigned char T_min=20;
+  13          unsigned char T_max=30;
+  14          unsigned int datt;
+  15          unsigned char stat_Led=0xff;
+  16          unsigned char v;
+  17          
+  18          
+  19          void Init138(unsigned char n,unsigned char dat)
+  20          {
+  21   1                 P0=dat;
+  22   1                 P2=(P2&0x1f)|0x00;
+  23   1                 switch(n)
+  24   1                 {
+  25   2                              case 4:P2=(P2&0x1f)|0x80; break;
+  26   2                              case 5:P2=(P2&0x1f)|0xa0; break;
+  27   2                              case 6:P2=(P2&0x1f)|0xc0; break;
+  28   2                              case 7:P2=(P2&0x1f)|0xe0; break;
+  29   2                 }
+  30   1                 P2=(P2&0x1f)|0x00;
+  31   1      }
+  32          
+  33          void DelaySMG(unsigned int i)
+  34          {
+  35   1              while(i--);
+  36   1      }
+  37          
+  38          void InitSMG(unsigned char wei,unsigned char duan)
+  39          {
+  40   1              Init138(6,0x01<<wei);
+  41   1              Init138(7,duan);
+  42   1              DelaySMG(500);
+  43   1              Init138(6,0x01<<wei);
+  44   1              Init138(7,0xff);
+  45   1      }
+  46          
+  47          void ALLSMG()
+  48          {
+  49   1              Init138(6,0xff);
+  50   1              Init138(7,0xff);
+  51   1      }
+  52          
+  53          void Display()
+  54          {
+C51 COMPILER V9.01   DS18B20第二场                                                         05/10/2022 18:39:31 PAGE 2   
+
+  55   1              switch(F_SMG)
+  56   1              {
+  57   2                      case 1:
+  58   2                                 InitSMG(7,duanma[Temp%10]);
+  59   2                                 InitSMG(6,duanma[Temp/10]);
+  60   2                                 InitSMG(0,0xc6);
+  61   2                                 ALLSMG();
+  62   2                      break;
+  63   2                      case 2:
+  64   2                              if(hl==0&K5==0|K5==1)
+  65   2                              {
+  66   3                                 InitSMG(7,duanma[T_min%10]);
+  67   3                                 InitSMG(6,duanma[T_min/10]);
+  68   3                               }
+  69   2                               if(hl==0&K5==1|K5==0)
+  70   2                               {  
+  71   3                                 InitSMG(4,duanma[T_max%10]);
+  72   3                                 InitSMG(3,duanma[T_max/10]);
+  73   3                                 }
+  74   2                                InitSMG(0,0x8c);
+  75   2                                 ALLSMG();
+  76   2                      break;
+  77   2                      case 3:
+  78   2                                 InitSMG(7,duanma[(datt*5)/255]);
+  79   2                                 InitSMG(6,duanma[(datt*5)/255]);
+  80   2                                 InitSMG(0,0xc1);
+  81   2                      break;  
+  82   2              }
+  83   1      }
+  84          
+  85          void InitTime0()
+  86          {
+  87   1              TH0=(65535-10000)%256;
+  88   1              TL0=(65535-10000)/256;
+  89   1              ET0=1;
+  90   1              EA=1;
+  91   1              TR0=1;
+  92   1      }
+  93          void SerTime0()interrupt 1
+  94          {
+  95   1              TH0=(65535-10000)%256;
+  96   1              TL0=(65535-10000)/256;
+  97   1                 count++;
+  98   1               if(count==100)
+  99   1               {
+ 100   2               count=0;
+ 101   2                      if(hl==0)
+ 102   2                      {
+ 103   3                              hl=1;
+ 104   3                      }
+ 105   2                      else if(hl==1)
+ 106   2                      {
+ 107   3                              hl=0;
+ 108   3                      }
+ 109   2               }
+ 110   1      
+ 111   1      }
+ 112          
+ 113          
+ 114          void Read_Ds18()
+ 115          {
+ 116   1              unsigned H,L;
+C51 COMPILER V9.01   DS18B20第二场                                                         05/10/2022 18:39:31 PAGE 3   
+
+ 117   1              init_ds18b20();
+ 118   1              Write_DS18B20(0xcc);
+ 119   1              Write_DS18B20(0x44);
+ 120   1              DelaySMG(1500);
+ 121   1      
+ 122   1              init_ds18b20();
+ 123   1              Write_DS18B20(0xcc);
+ 124   1              Write_DS18B20(0xbe);
+ 125   1              L=Read_DS18B20();
+ 126   1              H=Read_DS18B20();
+ 127   1              H=H<<8|L;
+ 128   1              if((H&0x8000)==0x0000)
+ 129   1              {
+ 130   2                      Temp=H>>4;
+ 131   2               }
+ 132   1      }
+ 133          
+ 134          
+ 135          void Writ_PCF(unsigned char dat)
+ 136          {
+ 137   1               IIC_Start();
+ 138   1               IIC_SendByte(0x90);
+ 139   1               IIC_WaitAck();
+ 140   1               IIC_SendByte(0x40);
+ 141   1               IIC_WaitAck();
+ 142   1               IIC_SendByte(dat);
+ 143   1               IIC_WaitAck();
+ 144   1               IIC_SendAck(0);
+ 145   1               IIC_Stop();
+ 146   1      }
+ 147          
+ 148          void Read_PCF()
+ 149          {
+ 150   1                IIC_Start();
+ 151   1               IIC_SendByte(0x90);
+ 152   1               IIC_WaitAck();
+ 153   1               IIC_SendByte(0x43);
+ 154   1               IIC_WaitAck();
+ 155   1               IIC_Stop();
+ 156   1      
+ 157   1               Display();
+ 158   1      
+ 159   1               IIC_Start();
+ 160   1               IIC_SendByte(0x91);
+ 161   1               IIC_WaitAck();
+ 162   1               datt=IIC_RecByte();
+ 163   1               IIC_WaitAck();
+ 164   1               IIC_SendAck(0);
+ 165   1               IIC_Stop();
+ 166   1      }
+ 167          
+ 168          void Led()
+ 169          {
+ 170   1               if(Temp>T_max)
+ 171   1               {
+ 172   2                        stat_Led=0xff;
+ 173   2                         stat_Led&=~0x01;
+ 174   2                         v=4;
+ 175   2                         Writ_PCF(4*51);
+ 176   2                        Init138(4,stat_Led);
+ 177   2               }
+ 178   1               else if((T_min<=Temp)&(Temp<=T_max))
+C51 COMPILER V9.01   DS18B20第二场                                                         05/10/2022 18:39:31 PAGE 4   
+
+ 179   1               {
+ 180   2                      stat_Led=0xff;
+ 181   2                      v=3;
+ 182   2                      Writ_PCF(3*51);
+ 183   2                      stat_Led&=~0x02;
+ 184   2                      Init138(4,stat_Led);            
+ 185   2               }
+ 186   1               else if(Temp<T_min)
+ 187   1               {
+ 188   2                       stat_Led=0xff;stat_Led&=~0x04;
+ 189   2                       v=2;
+ 190   2                       Writ_PCF(2*51);
+ 191   2                       
+ 192   2                       Init138(4,stat_Led);
+ 193   2               }
+ 194   1               else 
+ 195   1               {
+ 196   2                       stat_Led=0xff;
+ 197   2                       stat_Led&=~0x80;
+ 198   2                       Init138(4,stat_Led);
+ 199   2               }
+ 200   1      }
+ 201          
+ 202          void KEY()
+ 203          {
+ 204   1               if(P33==0)
+ 205   1               {
+ 206   2                      DelaySMG(200);
+ 207   2                      if(P33==0)
+ 208   2                      {
+ 209   3                              if(F_SMG==1)
+ 210   3                              {
+ 211   4                                      F_SMG=2;
+ 212   4                              }
+ 213   3                              else if(F_SMG==2)
+ 214   3                              {
+ 215   4                                      F_SMG=3;
+ 216   4                              }
+ 217   3                              else
+ 218   3                              {
+ 219   4                                      F_SMG=1;
+ 220   4                              }
+ 221   3                      while(P33==0)
+ 222   3                      {
+ 223   4      
+ 224   4                      }
+ 225   3                      }
+ 226   2               }
+ 227   1      
+ 228   1               if(P32==0)
+ 229   1               {
+ 230   2                      DelaySMG(200);
+ 231   2                      if(P32==0)
+ 232   2                      {
+ 233   3                              if(K5==0)
+ 234   3                              {
+ 235   4                                      K5=1;
+ 236   4                              }
+ 237   3                              else if(K5==1)
+ 238   3                              {
+ 239   4                                      K5=0;
+ 240   4                              }
+C51 COMPILER V9.01   DS18B20第二场                                                         05/10/2022 18:39:31 PAGE 5   
+
+ 241   3                              while(P32==0)
+ 242   3                              {
+ 243   4              
+ 244   4                              }
+ 245   3                      }
+ 246   2               }
+ 247   1      
+ 248   1               if(P31==0)
+ 249   1               {
+ 250   2                      DelaySMG(200);
+ 251   2                      if(P31==0)
+ 252   2                      {
+ 253   3                              if(K5==1)
+ 254   3                              {
+ 255   4                                       T_max++;
+ 256   4                                       if(T_max>99)
+ 257   4                                       {
+ 258   5                                              T_max=30;
+ 259   5                                       }
+ 260   4                              }
+ 261   3                              else if(K5==0)
+ 262   3                              {
+ 263   4                                      T_min++;
+ 264   4                                      if(T_max<T_min)
+ 265   4                                      {
+ 266   5                                              T_min=20 ;
+ 267   5                                      }
+ 268   4                              }
+ 269   3                              while(P31==0)
+ 270   3                              {
+ 271   4                      
+ 272   4                              }
+ 273   3                      }
+ 274   2               }
+ 275   1      
+ 276   1      
+ 277   1               if(P30==0)
+ 278   1               {
+ 279   2                      DelaySMG(200);
+ 280   2                      if(P30==0)
+ 281   2                      {
+ 282   3                              if(K5==1)
+ 283   3                              {
+ 284   4                                       T_max--;
+ 285   4                                       if(T_max<T_min)
+ 286   4                                       {
+ 287   5                                              T_max=30;
+ 288   5                                       }
+ 289   4                              }
+ 290   3                              else if(K5==0)
+ 291   3                              {
+ 292   4                                      T_min--;
+ 293   4                                      if(T_min<0)
+ 294   4                                      {
+ 295   5                                              T_min=20 ;
+ 296   5                                      }
+ 297   4                              }
+ 298   3                              while(P30==0)
+ 299   3                              {
+ 300   4                      
+ 301   4                              }
+ 302   3                      }
+C51 COMPILER V9.01   DS18B20第二场                                                         05/10/2022 18:39:31 PAGE 6   
+
+ 303   2               }
+ 304   1      }
+ 305          
+ 306          
+ 307          void main()
+ 308          {
+ 309   1      ALLSMG();
+ 310   1      InitTime0();
+ 311   1              while(1)
+ 312   1              {
+ 313   2                      Read_Ds18();
+ 314   2                      Led();
+ 315   2                      Read_PCF();
+ 316   2                      
+ 317   2                      Display();
+ 318   2                      KEY();
+ 319   2              }
+ 320   1      }                                       
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    941    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     30       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
